@@ -62,19 +62,14 @@ edge-impulse-linux-runner --download modelfile.eim
 To run the application, use the following command. You can specify either a camera ID or a video file path as the input:
 
 ```
-python app.py --camera 0 --save-images-interval 10
+python app.py --camera 0 --extracted-object-size 200 --save-images-interval 5 
 ```
 
 - **`--camera`**: The camera ID (default: `0` for the first camera) or a video file path.
 - **`--extracted-object-size`**: (Optional) Size of the squared bounding boxes around the extracted objects in pixels. Increase if you have large objects, decrease if you have small objects (default: 150)
 - **`--save-images-interval`**: (Optional) The interval in seconds for saving processed images (default: `0`, meaning no images will be saved).
 
-For example, to run the app using a video file and save images every 10 seconds, use:
-
-```bash
-python app.py --camera 0
-```
-or
+Or, to run the app using a video file and save images every 10 seconds, use:
 ```bash
 python app.py --camera /path/to/video.mp4 --save-images-interval 10
 ```
