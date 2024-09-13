@@ -48,8 +48,8 @@ pip install opencv-python flask edge-impulse-linux
 
 You can clone the following projects used to write this tutorial:
 
-FOMO: [Cubes on a conveyor belt v3 - Labeled - 4 colors](https://studio.edgeimpulse.com/public/494157/latest)
-FOMO-AD: [Cubes - Visual AD](https://studio.edgeimpulse.com/public/517331/latest)
+* **FOMO**: [Cubes on a conveyor belt v3 - Labeled - 4 colors](https://studio.edgeimpulse.com/public/494157/latest)
+* **FOMO-AD**: [Cubes - Visual AD](https://studio.edgeimpulse.com/public/517331/latest)
 
 To download the models, you can either use the "Deployment" option from Edge Impulse Studio or use the [Edge Impulse Linux CLI](https://docs.edgeimpulse.com/docs/tools/edge-impulse-for-linux/linux-node-js-sdk)
 
@@ -66,6 +66,7 @@ python app.py --camera 0 --save-images-interval 10
 ```
 
 - **`--camera`**: The camera ID (default: `0` for the first camera) or a video file path.
+- **`--extracted-object-size`**: (Optional) Size of the squared bounding boxes around the extracted objects in pixels. Increase if you have large objects, decrease if you have small objects (default: 150)
 - **`--save-images-interval`**: (Optional) The interval in seconds for saving processed images (default: `0`, meaning no images will be saved).
 
 For example, to run the app using a video file and save images every 10 seconds, use:

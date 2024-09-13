@@ -16,7 +16,7 @@ app = Flask(__name__, static_folder='templates/assets')
 camera_id = 0
 countObjects = 0
 inferenceSpeed = 0
-od_model_input_size = 0
+od_model_parameters = 0
 save_images_interval = 0  # Interval in seconds to save images (0 means no saving)
 last_saved_time = 0  # Keeps track of when the last image was saved
 
@@ -25,7 +25,7 @@ bounding_boxes = []
 latest_high_res_frame = None
 
 desired_fps = 30
-object_size = 180
+object_size = 0
 
 # Ensure the output directory exists
 OUTPUT_DIR = 'output'
@@ -94,17 +94,18 @@ def gen_high_res_frames():
             # Yield the frame as a multipart response
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
 # Function to generate frames and run inference
 def gen_frames():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     modelfile = os.path.join(dir_path, 'modelfile-fomo.eim')
-    global countObjects, bounding_boxes, inferenceSpeed, latest_high_res_frame, od_model_input_size
+    global countObjects, bounding_boxes, inferenceSpeed, latest_high_res_frame, od_model_parameters
 
     with ImageImpulseRunner(modelfile) as runner:
         try:
             model_info = runner.init()
-            print(json.dumps(model_info, indent=4))
-            od_model_input_size = model_info['model_parameters']
+            # print(json.dumps(model_info, indent=4))
+            od_model_parameters = model_info['model_parameters']
             while True:
                 if latest_high_res_frame is None:
                     print("Waiting for high-res frame...")
@@ -116,7 +117,6 @@ def gen_frames():
                 res = runner.classify(features)
 
                 if "result" in res:
-                    od_model_input_size = cropped.shape[1]
                     cropped = cv2.resize(cropped, (cropped.shape[1] * scaleFactor, cropped.shape[0] * scaleFactor))
                     cropped = cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB)
                     cropped = process_inference_result(res, cropped)
@@ -182,11 +182,11 @@ def crop_square_frame(frame, height, width):
 
 # Crop the bounding box from the square-cropped frame
 def crop_bounding_box(frame, box, object_size):
-    global od_model_input_size
+    global od_model_parameters
     frame_height, frame_width, _ = frame.shape
 
     # Calculate scale ratio to map bounding box to the frame
-    scale_ratio = min(frame_height, frame_width) / od_model_input_size
+    scale_ratio = min(frame_height, frame_width) / od_model_parameters['image_input_height']
     center_x = int((box['x'] + box['width'] / 2) * scale_ratio)
     center_y = int((box['y'] + box['height'] / 2) * scale_ratio)
 
@@ -325,11 +325,13 @@ if __name__ == '__main__':
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Run the image processing app with camera or video file and save interval options.")
     parser.add_argument('--camera', type=str, default='0', help='Camera ID or video file path to use (default: 0 for the first camera)')
+    parser.add_argument('--extracted-object-size', type=int, default=150, help='Size of the squared bounding boxes around the extracted objects in pixels. Increase if you have large objects, decrease if you have small objects (default: 150)')
     parser.add_argument('--save-images-interval', type=int, default=0, help='Interval to save images in seconds (default: 0, meaning no saving)')
     args = parser.parse_args()
 
     # Set the global variables for camera or video file and save interval
     camera_id = args.camera
+    object_size = args.extracted_object_size
     save_images_interval = args.save_images_interval
 
     print(f"Running with camera/video: {camera_id} and save images interval of {save_images_interval} seconds.")
