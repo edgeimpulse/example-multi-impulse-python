@@ -1,16 +1,27 @@
 # Multiple Impulses with Python: Object Detection and Anomaly Detection
 
-This Flask-based web application demonstrates the use of **multiple impulses** for real-time object detection **and** visual anomaly detection. 
+This Flask-based web application demonstrates the use of **multiple impulses** for real-time object detection **and** visual anomaly detection.
 
 The first stage detects objects using Edge Impulse’s **FOMO (Fast Object Detection)** model, then maps the detected objects back onto the high-resolution input image, extracts (crops) the objects, and finally applies **FOMO-AD**, a **visual anomaly detection** model to the cropped objects.
 
 ![Web app overview](/templates/assets/web-app-overview.png)
 
-## Application Flow
+## Application Workflow
 
-1. **Object Detection with FOMO**: The first stage uses a FOMO model to detect objects and identify the center of each detected object.
-2. **Mapping and Cropping**: After identifying the object center, the application maps the object back onto the original high-resolution image and crops the object.
-3. **Anomaly Detection**: The cropped objects are passed through a **visual anomaly detection** model to check for any abnormalities, and the results are displayed.
+1. **Video process**:
+   Start high-res frame capture/reading in a background thread using OpenCV.
+
+2. **Object Detection (FOMO)**:
+  The FOMO model detects objects in the frame and returns their bounding boxes. The center of each detected object is calculated.
+
+1. **Mapping and Cropping**:
+  The application maps each detected object's center back to the original high-resolution image and crops out the region around the object.
+
+1. **Anomaly Detection**:
+  Each cropped object is passed through a visual anomaly detection model, and the results are displayed, including any detected anomalies.
+
+1. **Saving Cropped Images (Optional)**:
+  Cropped objects can be saved at a user-specified interval. The images are saved with both the original crop and the overlaid anomaly grid. These images can then be imported in another Edge Impulse project to train your anomaly detection model.
 
 ## Prerequisites
 
@@ -69,19 +80,9 @@ python app.py --camera /path/to/video.mp4 --save-images-interval 10
 
 *In the `input/` folder, you can find three videos for testing purposes.*
 
-## Application Workflow
+Go to [http://localhost:5001/](http://localhost:5001/).
 
-1. **Object Detection (FOMO)**:
-   - The FOMO model detects objects in the frame and returns their bounding boxes. The center of each detected object is calculated.
-
-2. **Mapping and Cropping**:
-   - The application maps each detected object's center back to the original high-resolution image and crops out the region around the object.
-
-3. **Anomaly Detection**:
-   - Each cropped object is passed through a visual anomaly detection model, and the results are displayed, including any detected anomalies.
-
-4. **Saving Cropped Images**:
-   - Cropped objects can be saved at a user-specified interval. The images are saved with both the original crop and the overlaid anomaly grid.
+![Overview](/templates/assets/multi-impulse-linux-overview.gif)
 
 ## Available Routes
 
@@ -91,7 +92,7 @@ python app.py --camera /path/to/video.mp4 --save-images-interval 10
 
 3. **`/video_feed`**: Provides the video feed with object detection, centroids, and anomaly detection results.
 
-4. **`/inference_speed`**: Returns the inference speed (time taken for classification) as an event stream.
+4. **`/inference_speed`**: Returns the inference speed (time taken for the FOMO detection process) as an event stream. - TODO: Capture the full process speed.
 
 5. **`/object_counter`**: Returns the number of detected objects as an event stream.
 
@@ -101,3 +102,4 @@ python app.py --camera /path/to/video.mp4 --save-images-interval 10
 
 - The models must be located in the same directory as the script before running the application.
 - This application is a demonstration and is not optimized for production.
+- If you are planning on using this on a distant device and don't have access to a monitor connected to that device, replace the last line with: app.run(host="0.0.0.0", port=5001, debug=True), it will broadcast the web application to your local network.
