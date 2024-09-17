@@ -4,7 +4,6 @@ import os
 import time
 import json
 import logging
-import threading
 import base64
 from flask import Flask, render_template, Response, jsonify
 from edge_impulse_linux.image import ImageImpulseRunner
@@ -85,7 +84,36 @@ def start_high_res_frame_capture():
 # High-resolution video feed (from camera or looping video file)
 def gen_high_res_frames():
     global latest_high_res_frame
+
+    global latest_high_res_frame
+    
+    # Check if `camera_id` is a valid video file path or a camera ID
+    if os.path.isfile(camera_id):
+        print(f"Opening video file: {camera_id}")
+        camera = cv2.VideoCapture(camera_id)
+        is_video_file = True
+    else:
+        print(f"Using camera ID: {camera_id}")
+        camera = cv2.VideoCapture(int(camera_id))  # Treat as camera ID
+        is_video_file = False
+
+    delay_between_frames = 1 / desired_fps  # Approx. 0.033 seconds for 30 FPS
+
     while True:
+        start_time = time.time()
+        success, frame = camera.read()
+        
+        if not success and is_video_file:
+            print("End of video file, looping back to start.")
+            camera.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset to the first frame
+            continue
+        elif not success:
+            print("Could not get frame (camera failure)")
+            break
+        
+        # Store the latest frame globally
+        latest_high_res_frame = frame.copy()
+        
         if latest_high_res_frame is not None:
             # Convert the latest frame to JPEG
             ret, buffer = cv2.imencode('.jpg', latest_high_res_frame)
@@ -94,6 +122,14 @@ def gen_high_res_frames():
             # Yield the frame as a multipart response
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+        
+        # Calculate time to sleep to maintain 30 FPS
+        frame_process_time = time.time() - start_time
+        time_to_sleep = max(0, delay_between_frames - frame_process_time)
+        time.sleep(time_to_sleep)
+    
+    camera.release()
 
 # Function to generate frames and run inference
 def gen_frames():
@@ -335,13 +371,9 @@ if __name__ == '__main__':
     save_images_interval = args.save_images_interval
 
     print(f"Running with camera/video: {camera_id} and save images interval of {save_images_interval} seconds.")
-
-    # Start high-res frame capture in a background thread
-    frame_capture_thread = threading.Thread(target=start_high_res_frame_capture, daemon=True)
-    frame_capture_thread.start()
     
     # Run the Flask app
     # Set the log level to only show errors (suppress HTTP GET logs)
     log = logging.getLogger('werkzeug')
     log.setLevel(logging.ERROR)
-    app.run(port=5001, debug=True)
+    app.run(host="0.0.0.0", port=5001, debug=True)
