@@ -161,6 +161,7 @@ def get_cropped_image_base64_with_anomalies(box):
     height, width, _ = latest_high_res_frame.shape
     squared_frame = get_squared_image_from_high_res_frame(latest_high_res_frame, height, width)
     cropped_img = crop_bounding_box(squared_frame, box, object_size)
+    cropped_img = cv2.resize(cropped_img, (object_size, object_size))
     anomalies = detect_anomalies(cropped_img)
     cropped_with_anomaly_grid = draw_anomaly_grid(cropped_img, anomalies)
 
@@ -242,7 +243,7 @@ def detect_anomalies(cropped_img):
     with ImageImpulseRunner(modelfile) as anomaly_runner:
         try:
             anomaly_runner.init()
-            features, _ = anomaly_runner.get_features_from_image(cv2.cvtColor(cropped_img, cv2.COLOR_BGR2RGB))
+            features, _ = anomaly_runner.get_features_from_image_auto_studio_setings(cropped_img)
             result = anomaly_runner.classify(features)
             if "visual_anomaly_grid" in result["result"]:
                 anomalies = [{'x': grid_cell['x'], 'y': grid_cell['y'], 'width': grid_cell['width'],
