@@ -86,13 +86,13 @@ Go to [http://localhost:5001/](http://localhost:5001/).
 
 2. **`/high_res_video_feed`**: Provides the high-resolution video feed (from the camera or video file).
 
-3. **`/video_feed`**: Provides the video feed with object detection, centroids, and anomaly detection results.
+3. **`/object_detection_feed`**: Provides the video feed with object detection, centroids, and anomaly detection results.
 
 4. **`/inference_speed`**: Returns the inference speed (time taken for the FOMO detection process) as an event stream. - TODO: Capture the full process speed.
 
 5. **`/object_counter`**: Returns the number of detected objects as an event stream.
 
-6. **`/bounding_boxes_feed`**: Provides bounding boxes, cropped images, and anomaly results in JSON format.
+6. **`/extracted_objects_feed`**: Provides extracted objects, cropped images, and anomaly results in JSON format.
 
 ## Notes
 

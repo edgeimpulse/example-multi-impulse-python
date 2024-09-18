@@ -23,7 +23,7 @@
       <div class="col-4 text-center"> 
         <h2>Inference Results</h2>
         <p class="mb-4">This feed shows the object detection results with centroids after inference.</p>
-        <img src="{{ url_for('video_feed') }}" class="img-fluid border rounded-3 mb-4" width="400" alt="Processed Inference Feed" loading="lazy">
+        <img src="{{ url_for('object_detection_feed') }}" class="img-fluid border rounded-3 mb-4" width="400" alt="Processed Inference Feed" loading="lazy">
         <div class="col-lg-6 mx-auto">
           <p class="">Inference speed: <span id="inference_speed"></span> ms</p>
           <p class="">Objects detected: <span id="object_counter"></span></p>
@@ -103,7 +103,7 @@
 
     // Function to fetch bounding boxes every second
     function fetchBoundingBoxes() {
-        fetch("{{ url_for('bounding_boxes_feed') }}")
+        fetch("{{ url_for('extracted_objects_feed') }}")
             .then(response => response.json())
             .then(boxes => {
                 document.getElementById("bounding-boxes").innerHTML = "";
@@ -114,7 +114,7 @@
     }
 
     // Fetch bounding boxes every second
-    setInterval(fetchBoundingBoxes, 100);
+    setInterval(fetchBoundingBoxes, 200);
 </script>
 </body>
 </html>

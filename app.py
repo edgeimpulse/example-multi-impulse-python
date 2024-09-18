@@ -41,50 +41,8 @@ def save_cropped_image(cropped_img, label, timestamp):
     cv2.imwrite(filepath, cropped_img)
     print(f"Saved cropped image: {filepath}")
 
-def start_high_res_frame_capture():
-    """
-    Continuously capture high-resolution frames in the background.
-    """
-    global latest_high_res_frame
-    
-    # Check if `camera_id` is a valid video file path or a camera ID
-    if os.path.isfile(camera_id):
-        print(f"Opening video file: {camera_id}")
-        camera = cv2.VideoCapture(camera_id)
-        is_video_file = True
-    else:
-        print(f"Using camera ID: {camera_id}")
-        camera = cv2.VideoCapture(int(camera_id))  # Treat as camera ID
-        is_video_file = False
-
-    delay_between_frames = 1 / desired_fps  # Approx. 0.033 seconds for 30 FPS
-
-    while True:
-        start_time = time.time()
-        success, frame = camera.read()
-        
-        if not success and is_video_file:
-            print("End of video file, looping back to start.")
-            camera.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reset to the first frame
-            continue
-        elif not success:
-            print("Could not get frame (camera failure)")
-            break
-        
-        # Store the latest frame globally
-        latest_high_res_frame = frame.copy()
-        
-        # Calculate time to sleep to maintain 30 FPS
-        frame_process_time = time.time() - start_time
-        time_to_sleep = max(0, delay_between_frames - frame_process_time)
-        time.sleep(time_to_sleep)
-    
-    camera.release()
-
 # High-resolution video feed (from camera or looping video file)
 def gen_high_res_frames():
-    global latest_high_res_frame
-
     global latest_high_res_frame
     
     # Check if `camera_id` is a valid video file path or a camera ID
@@ -201,15 +159,15 @@ def get_cropped_image_base64_with_anomalies(box):
     global latest_high_res_frame, object_size
 
     height, width, _ = latest_high_res_frame.shape
-    square_cropped_frame = crop_square_frame(latest_high_res_frame, height, width)
-    cropped_img = crop_bounding_box(square_cropped_frame, box, object_size)
+    squared_frame = get_squared_image_from_high_res_frame(latest_high_res_frame, height, width)
+    cropped_img = crop_bounding_box(squared_frame, box, object_size)
     anomalies = detect_anomalies(cropped_img)
     cropped_with_anomaly_grid = draw_anomaly_grid(cropped_img, anomalies)
 
     return encode_images_to_base64(cropped_img, cropped_with_anomaly_grid), anomalies, cropped_img
 
 # Crop a square frame from the center
-def crop_square_frame(frame, height, width):
+def get_squared_image_from_high_res_frame(frame, height, width):
     height, width, _ = latest_high_res_frame.shape
     shortest_axis = min(height, width)
     x_start = (width - shortest_axis) // 2
@@ -304,8 +262,8 @@ def draw_anomaly_grid(cropped_img, anomalies):
 
 
 # API to get bounding boxes with cropped images and anomaly grids
-@app.route('/bounding_boxes_feed')
-def bounding_boxes_feed():
+@app.route('/extracted_objects_feed')
+def extracted_objects_feed():
     global last_saved_time
     enriched_bounding_boxes = []
     current_time = time.time()
@@ -336,8 +294,8 @@ def high_res_video_feed():
     return Response(gen_high_res_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 # Routes for live video feeds
-@app.route('/video_feed')
-def video_feed():
+@app.route('/object_detection_feed')
+def object_detection_feed():
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 # Data sources for inference speed and object counting
