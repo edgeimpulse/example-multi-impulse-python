@@ -36,9 +36,10 @@
       <div class="col-6">
         <h2 class="text-center">Extracted Objects</h2>
       </div>
-      <div class="col-6">
+      <!-- DISABLE AD -->
+      <!-- <div class="col-6">
         <h2 class="text-center">Anomaly Results</h2>
-      </div>
+      </div> -->
       <p></p>
       <div class="col-12" id="bounding-boxes">
         <!-- Bounding boxes will be added dynamically as new rows -->
@@ -82,21 +83,22 @@
         img.alt = "Cropped Object";
         imgDiv.appendChild(img);
 
-        var anomalyDiv = document.createElement('div');
-        anomalyDiv.className = "col-12 col-md-4";  // Column for the anomaly grid image
+        // DISABLE AD
+        // var anomalyDiv = document.createElement('div');
+        // anomalyDiv.className = "col-12 col-md-4";  // Column for the anomaly grid image
 
-        var anomalyImg = document.createElement('img');
-        anomalyImg.src = `data:image/jpeg;base64,${box.anomaly_grid_image}`;  // Cropped image with anomaly grid
-        anomalyImg.className = "img-fluid mb-2";
-        anomalyImg.width = 96;
-        anomalyImg.height = 96;
-        anomalyImg.alt = "Anomaly Grid";
-        anomalyDiv.appendChild(anomalyImg);
+        // var anomalyImg = document.createElement('img');
+        // anomalyImg.src = `data:image/jpeg;base64,${box.anomaly_grid_image}`;  // Cropped image with anomaly grid
+        // anomalyImg.className = "img-fluid mb-2";
+        // anomalyImg.width = 96;
+        // anomalyImg.height = 96;
+        // anomalyImg.alt = "Anomaly Grid";
+        // anomalyDiv.appendChild(anomalyImg);
 
         // Append all divs to the row
         rowDiv.appendChild(colDiv);
         rowDiv.appendChild(imgDiv);
-        rowDiv.appendChild(anomalyDiv);
+        // rowDiv.appendChild(anomalyDiv);
 
         document.getElementById("bounding-boxes").appendChild(rowDiv);
     }

@@ -5,13 +5,16 @@ import time
 import json
 import logging
 import base64
+import requests
+import numpy as np
 from flask import Flask, render_template, Response, jsonify
-from edge_impulse_linux.image import ImageImpulseRunner
+from get_features_from_image import get_features_from_image_with_studio_mode
 
 app = Flask(__name__, static_folder='templates/assets')
 
 # Global variables
 
+inference_endpoint = "http://inference-service:1337/api" # local test only
 camera_id = 0
 countObjects = 0
 inferenceSpeed = 0
@@ -89,17 +92,46 @@ def gen_high_res_frames():
     
     camera.release()
 
+# get model parameters
+def get_model_info():
+    response = requests.get(
+        url=f"{inference_endpoint}/info",
+    )
+    if response.status_code != 200:
+        print("Download model parameters failed")
+        print(response.content)
+        return {}
+    return response.json()
+
+# get inference results
+def get_inference_results(features):
+    url = f"{inference_endpoint}/features"
+    payload = json.dumps({ "features": features })
+    headers = {
+        'accept': "application/json",
+        'content-type': "application/json",
+    }
+    response = requests.request("POST", url, data=payload, headers=headers)
+    
+    if (response.status_code != 200):
+        raise Exception('link: status code was not 200, but ' + str(response.status_code) + ' - ' + response.text)
+    j = response.json()
+    return j
+
 # Function to generate frames and run inference
 def gen_frames():
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    modelfile = os.path.join(dir_path, 'modelfile-fomo.eim')
     global countObjects, bounding_boxes, inferenceSpeed, latest_high_res_frame, od_model_parameters
 
-    with ImageImpulseRunner(modelfile) as runner:
+    model_info = get_model_info()
+    if len(model_info) == 0:
+        raise Exception('Cannot retrieve model parameters')
+    
+    print(json.dumps(model_info, indent=4))
+    od_model_parameters = model_info['modelParameters']
+
+    while (1):
         try:
-            model_info = runner.init()
-            # print(json.dumps(model_info, indent=4))
-            od_model_parameters = model_info['model_parameters']
+            
             while True:
                 if latest_high_res_frame is None:
                     print("Waiting for high-res frame...")
@@ -107,8 +139,13 @@ def gen_frames():
                     continue
 
                 img = cv2.cvtColor(latest_high_res_frame.copy(), cv2.COLOR_BGR2RGB)
-                features, cropped = runner.get_features_from_image(img)
-                res = runner.classify(features)
+                resize_mode = od_model_parameters["image_resize_mode"]
+                output_width = od_model_parameters["image_input_width"]
+                output_height = od_model_parameters["image_input_height"]
+                is_grayscale = od_model_parameters["image_channel_count"] == 1
+
+                features, cropped = get_features_from_image_with_studio_mode(img, resize_mode, output_width, output_height, is_grayscale)
+                res = get_inference_results(features)
 
                 if "result" in res:
                     cropped = cv2.resize(cropped, (cropped.shape[1] * scaleFactor, cropped.shape[0] * scaleFactor))
@@ -119,8 +156,9 @@ def gen_frames():
                 frame = buffer.tobytes()
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-        finally:
-            runner.stop()
+        
+        except Exception as e:
+            print(e)
 
 # Helper function to process inference results and return the updated frame
 def process_inference_result(res, cropped):
@@ -162,10 +200,14 @@ def get_cropped_image_base64_with_anomalies(box):
     squared_frame = get_squared_image_from_high_res_frame(latest_high_res_frame, height, width)
     cropped_img = crop_bounding_box(squared_frame, box, object_size)
     cropped_img = cv2.resize(cropped_img, (object_size, object_size))
-    anomalies = detect_anomalies(cropped_img)
-    cropped_with_anomaly_grid = draw_anomaly_grid(cropped_img, anomalies)
 
-    return encode_images_to_base64(cropped_img, cropped_with_anomaly_grid), anomalies, cropped_img
+    # DISABLE AD
+    # anomalies = detect_anomalies(cropped_img)
+    # cropped_with_anomaly_grid = draw_anomaly_grid(cropped_img, anomalies)
+
+    # return encode_images_to_base64(cropped_img, cropped_with_anomaly_grid), anomalies, cropped_img
+
+    return encode_images_to_base64(cropped_img), cropped_img
 
 # Crop a square frame from the center
 def get_squared_image_from_high_res_frame(frame, height, width):
@@ -224,34 +266,37 @@ def crop_bounding_box(frame, box, object_size):
 
 
 # Encode images to base64
-def encode_images_to_base64(cropped_img, anomaly_img):
+def encode_images_to_base64(cropped_img, anomaly_img = None):
     _, buffer_original = cv2.imencode('.jpg', cropped_img)
+    if anomaly_img is None:
+        return base64.b64encode(buffer_original).decode('utf-8')
     _, buffer_with_grid = cv2.imencode('.jpg', anomaly_img)
     return base64.b64encode(buffer_original).decode('utf-8'), base64.b64encode(buffer_with_grid).decode('utf-8')
 
+# DISABLE AD
 # Detect anomalies using a second model
-def detect_anomalies(cropped_img):
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    modelfile = os.path.join(dir_path, 'modelfile-fomoad.eim')
-    anomalies = []
+# def detect_anomalies(cropped_img):
+#     dir_path = os.path.dirname(os.path.realpath(__file__))
+#     modelfile = os.path.join(dir_path, 'modelfile-fomoad.eim')
+#     anomalies = []
 
-    # Check if the model file exists
-    if not os.path.isfile(modelfile):
-        # print(f"Model file {modelfile} does not exist. Returning empty anomalies.")
-        return anomalies
+#     # Check if the model file exists
+#     if not os.path.isfile(modelfile):
+#         # print(f"Model file {modelfile} does not exist. Returning empty anomalies.")
+#         return anomalies
     
-    with ImageImpulseRunner(modelfile) as anomaly_runner:
-        try:
-            anomaly_runner.init()
-            features, _ = anomaly_runner.get_features_from_image_auto_studio_setings(cropped_img)
-            result = anomaly_runner.classify(features)
-            if "visual_anomaly_grid" in result["result"]:
-                anomalies = [{'x': grid_cell['x'], 'y': grid_cell['y'], 'width': grid_cell['width'],
-                            'height': grid_cell['height'], 'confidence': grid_cell['value']} 
-                            for grid_cell in result["result"]["visual_anomaly_grid"]]
-        finally:
-            anomaly_runner.stop()
-    return anomalies
+#     with ImageImpulseRunner(modelfile) as anomaly_runner:
+#         try:
+#             anomaly_runner.init()
+#             features, _ = anomaly_runner.get_features_from_image_auto_studio_setings(cropped_img)
+#             result = anomaly_runner.classify(features)
+#             if "visual_anomaly_grid" in result["result"]:
+#                 anomalies = [{'x': grid_cell['x'], 'y': grid_cell['y'], 'width': grid_cell['width'],
+#                             'height': grid_cell['height'], 'confidence': grid_cell['value']} 
+#                             for grid_cell in result["result"]["visual_anomaly_grid"]]
+#         finally:
+#             anomaly_runner.stop()
+#     return anomalies
 
 # Draw anomaly grid on the image
 def draw_anomaly_grid(cropped_img, anomalies):
@@ -272,9 +317,16 @@ def extracted_objects_feed():
     save_images = save_images_interval > 0 and current_time - last_saved_time >= save_images_interval
     timestamp = int(current_time) if save_images else None
 
+    # DISABLE AD
+    # for box in bounding_boxes:
+    #     cropped_image, anomalies, cropped_img_resized = get_cropped_image_base64_with_anomalies(box)
+    #     box_with_image = {**box, 'cropped_image': cropped_image[0], 'anomaly_grid_image': cropped_image[1], 'anomalies': anomalies}
+    #     enriched_bounding_boxes.append(box_with_image)
+
     for box in bounding_boxes:
-        cropped_image, anomalies, cropped_img_resized = get_cropped_image_base64_with_anomalies(box)
-        box_with_image = {**box, 'cropped_image': cropped_image[0], 'anomaly_grid_image': cropped_image[1], 'anomalies': anomalies}
+        cropped_image, cropped_img_resized = get_cropped_image_base64_with_anomalies(box)
+        print(cropped_image)
+        box_with_image = {**box, 'cropped_image': cropped_image}
         enriched_bounding_boxes.append(box_with_image)
 
         if save_images:

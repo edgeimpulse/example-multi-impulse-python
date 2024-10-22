@@ -1,2 +1,4 @@
-edge_impulse_linux
-opencv-python
+flask
+numpy
+opencv-python-headless
+requests
